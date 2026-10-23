@@ -311,7 +311,7 @@ h2{font-size:clamp(28px,8vw,38px);color:var(--hostile);text-shadow:0 0 18px rgba
       <label for="testFleet">Fleet</label>
       <select id="testFleet">
         <option value="1">1 ship</option><option value="10">10 ships</option>
-        <option value="20">20 ships</option><option value="36">36 ships (full)</option>
+        <option value="20">20 ships</option><option value="25">25 ships (full)</option>
       </select>
       <label class="toggle test-boss"><input type="checkbox" id="testBoss"> Jump straight to the mothership</label>
       <button class="btn test-browse" id="msBrowseBtn" type="button">Browse motherships</button>
@@ -476,9 +476,9 @@ const MAX_PER_TYPE = 160, MAX_BOLTS = 900, MAX_ORBS = 260, MAX_PARTS = 1400;
 const LEAD_Z = -4.5;            // reference lead-ship position; the live one (S.leadZ) moves with fleet size
 // COL_GAP matches the lane grid (8 divisions across a 10-wide lane); ROW_GAP keeps rows from overlapping
 const ROW_GAP = 1.0, COL_GAP = LANE * 2 / 8;
-const ROW_SIZES = [3, 5, 7, 9, 11];   // wingmen fill a widening pyramid behind the leader
+const ROW_SIZES = [3, 5, 7, 9];   // wingmen fill a widening pyramid behind the leader
 const FIELD_TIME = 12;          // seconds of new rocks; the field ends when the last one passes
-const MAX_SHIPS = 1 + ROW_SIZES.reduce((a, b) => a + b, 0);   // fleet cap: the leader plus a full pyramid (36)
+const MAX_SHIPS = 1 + ROW_SIZES.reduce((a, b) => a + b, 0);   // fleet cap: the leader plus a full pyramid (25)
 const BOSS_HOLD_Z = LEAD_Z - 19;
 const BOSS_RAGE_AT = 10;        // seconds on station before the mothership enrages
 const MISSILE_HITS = 3;         // shots needed to destroy a mothership missile
@@ -487,6 +487,7 @@ const WING_DPS = 0.5;           // each wingman adds half a lead ship
 const POWER_STEP = 0.25, RATE_STEP = 0.15, RATE_MAX_LV = 5;
 const WEAPON_TIME = 30, WEAPON_EXTEND = 20, WEAPON_MAX = 45;   // seconds a weapon pickup lasts before reverting to the Blaster
 const BASE_VOLLEY = 0.11;
+const BASE_RATE = 0.9;          // starting fire rate (90%); Fire rate upgrades multiply on top
 const SHIP_Y = 0.55;
 
 const WEAPONS = {
@@ -751,7 +752,7 @@ const ENEMY = {
       part(B(0.3, 0.2, 0.3), 0xffd36a, [-1.25, 0, 3.2]),
       part(B(0.3, 0.2, 0.3), 0xffd36a, [1.25, 0, 3.2]),
     ]),
-    hp: 60, speed: 0.9, str: 15, r: 3.0, boss: true,
+    hp: 66, speed: 0.9, str: 15, r: 3.0, boss: true,
   },
   // asteroid-field hazards between sectors
   rock: {
@@ -946,8 +947,8 @@ let enemies = [], bolts = [], orbs = [], parts = [], gates = [];
 
 const powerMult = () => 1 + POWER_STEP * S.powerLv;
 const rateMult = () => 1 + RATE_STEP * S.rateLv;
-const dps = () => BASE_DPS * (1 + WING_DPS * Math.max(0, S.count - 1)) * powerMult() * rateMult();
-const volleyInterval = () => BASE_VOLLEY / rateMult();
+const dps = () => BASE_DPS * (1 + WING_DPS * Math.max(0, S.count - 1)) * powerMult() * rateMult() * BASE_RATE;
+const volleyInterval = () => BASE_VOLLEY / (rateMult() * BASE_RATE);
 const HP_MULT = 0.8;              // global enemy toughness (tuned down 20%)
 // Enemy difficulty by event number k (12 events per sector). Sector 1 climbs 0 to 11; each later
 // sector restarts a little above the previous start (+4) and climbs at half the rate.
@@ -1030,9 +1031,10 @@ function burst(x, y, z, color, n, spd = 5, size = 1, life = 0.7) {
 }
 
 // ---------- spawning ----------
-function addEnemy(type, x, z, k) {
+// t, when given, overrides the difficulty level that k would imply (used by asteroids)
+function addEnemy(type, x, z, k, t) {
   const T = ENEMY[type];
-  const hp = BASE_DPS * T.hp * hpScale(k) * HP_MULT;
+  const hp = BASE_DPS * T.hp * (t === undefined ? hpScale(k) : 1 + 0.085 * t) * HP_MULT;
   const e = { type, x, z, y: type === 'mothership' ? 1.2 : 0.6, hp, maxHp: hp, flash: 0, phase: rand(0, 6.28), fireT: rand(1, 2.5), hold: 0 };
   enemies.push(e);
   return e;
@@ -1435,8 +1437,8 @@ function spawnRocks(progress, z = SPAWN_Z) {
   const n = 1 + (Math.random() < 0.5 ? 1 : 0) + (Math.random() < progress * 0.7 ? 1 : 0);
   for (let i = 0; i < n; i++) {
     const type = Math.random() < 0.28 + progress * 0.12 ? 'boulder' : 'rock';
-    // asteroids don't scale: every field uses the first field's toughness (event 12)
-    addEnemy(type, rand(-LANE + 0.8, LANE - 0.8), z - rand(0, 6), EVENTS_PER_SECTOR);
+    // asteroids toughen at half the ship rate: the first field is level 6, each later one +2
+    addEnemy(type, rand(-LANE + 0.8, LANE - 0.8), z - rand(0, 6), S.k, 6 + (S.sector - 1) * 2);
   }
 }
 function tickWeapon(dt) {
@@ -2148,6 +2150,8 @@ const PREFABS = [
   ['Melon', {"nose":{"style":1,"c1":"#7dff9a","c2":"#ff5cf0","off":[0,0,0.2],"size":0.8},"body":{"style":3,"c1":"#7dff9a","c2":"#ff5cf0"},"tail":{"style":5,"c1":"#7dff9a","c2":"#ff5cf0","off":[0,-0.3,0]},"thrusters":{"style":4,"c1":"#7dff9a","c2":"#ff5cf0","c3":"#b6ff5c"},"wings":{"style":0,"c1":"#7dff9a","c2":"#ff5cf0"}}],
   ['Spike', {"nose":{"style":2,"c1":"#ff4d6d","c2":"#8a93a8","size":0.5,"off":[0,0,0.6]},"body":{"style":9,"c1":"#ff4d6d","c2":"#46d9ff"},"tail":{"style":3,"c1":"#ff4d6d","c2":"#13203d","off":[0,0,0.4]},"thrusters":{"style":0,"c1":"#ff4d6d","c2":"#8a93a8","c3":"#7fe6ff","size":0.5},"wings":{"style":3,"c1":"#13203d","c2":"#ff4d6d"}}],
   ['Raptor', {"nose":{"style":2,"c1":"#7dff9a","c2":"#13203d","size":1.4},"body":{"style":4,"c1":"#dfe7f5","c2":"#2f9fe8"},"tail":{"style":9,"c1":"#7dff9a","c2":"#7dff9a","size":0.7},"thrusters":{"style":3,"c1":"#8a93a8","c2":"#3b4256","c3":"#7fe6ff"},"wings":{"style":4,"c1":"#7dff9a","c2":"#dfe7f5"}}],
+  ['Probe', {"nose":{"style":8,"c1":"#46d9ff","c2":"#8a93a8","size":0.7},"body":{"style":1,"c1":"#46d9ff","c2":"#13203d"},"tail":{"style":6,"c1":"#46d9ff","c2":"#7dff9a","off":[0,-0.7,0]},"thrusters":{"style":5,"c1":"#3b4256","c2":"#7dff9a","c3":"#ff4d6d"},"wings":{"style":7,"c1":"#8a93a8","c2":"#2f9fe8"}}],
+  ['Rogue', {"nose":{"style":1,"c1":"#ff6a3d","c2":"#6b4a36"},"body":{"style":4,"c1":"#6b4a36","c2":"#ff6a3d"},"tail":{"style":1,"c1":"#6b4a36","c2":"#3b4256"},"thrusters":{"style":3,"c1":"#6b4a36","c2":"#3b4256","c3":"#ff4d6d"},"wings":{"style":5,"c1":"#6b4a36","c2":"#ff6a3d"}}],
 ].map(([name, parts]) => ({ id: 'p:' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, parts, prefab: true }));
 // look up a ship by id: prefabs first, then the player's saved designs
 const findDesign = id => id ? (PREFABS.find(p => p.id === id) || Store.get().designs.find(d => d.id === id)) : null;
