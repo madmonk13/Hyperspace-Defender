@@ -142,7 +142,7 @@ h2{font-size:clamp(28px,8vw,38px);color:var(--hostile);text-shadow:0 0 18px rgba
 .go.secondary{background:transparent;color:var(--text);border:1px solid var(--line);box-shadow:none;font-size:16px;padding:11px 18px}
 .go.secondary:hover{background:rgba(255,255,255,.06)}
 .card-actions{display:grid;gap:10px}
-.test-tools{margin:0;padding:10px 12px 12px;border:1px dashed var(--line);border-radius:10px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:center;text-align:left;font-size:13px;color:var(--muted)}
+.test-tools{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:center;text-align:left;font-size:13px;color:var(--muted)}
 .test-tools legend{padding:0 6px;font:700 10px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
 .test-tools select{font:500 13px var(--ui);color:var(--text);background:#141735;border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-width:0;width:100%}
 .test-tools .test-boss{grid-column:1 / -1;padding:0;color:var(--text)}
@@ -152,7 +152,13 @@ h2{font-size:clamp(28px,8vw,38px);color:var(--hostile);text-shadow:0 0 18px rgba
 .tune output{flex:none;width:3.4em;text-align:right;font:600 13px var(--ui);color:var(--text);font-variant-numeric:tabular-nums}
 .tune-net{grid-column:1 / -1;margin:0;display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--text)}
 .tune-net .btn{padding:6px 10px;font-size:10px}
+.test-sub{grid-column:1 / -1;margin:4px 0 0;font:700 10px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.test-opts{grid-column:1 / -1;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px 12px}
+.test-opts .toggle{padding:0;color:var(--text);font-weight:500}
 #startScreen .card{max-height:calc(100dvh - 32px);overflow-y:auto;touch-action:pan-y}
+.dev-card{overflow-y:auto;touch-action:pan-y;text-align:left}
+.dev-card .eyebrow,.dev-card .pick-title{text-align:center}
+.dev-btn{font-size:14px;padding:9px 14px}
 .ms-stage{position:relative;width:100%;aspect-ratio:16/9;max-height:46vh;border-radius:12px;overflow:hidden;background:#0b0d24;border:1px solid var(--line)}
 #msCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .action-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -308,24 +314,7 @@ h2{font-size:clamp(28px,8vw,38px);color:var(--hostile);text-shadow:0 0 18px rgba
       </div>
     </div>
     <p class="best" id="bestLine" hidden></p>
-    <!-- TEMPORARY: test tools for jumping to any sector -->
-    <fieldset class="test-tools">
-      <legend>Test tools · temporary</legend>
-      <label for="testSector">Start at</label>
-      <select id="testSector"></select>
-      <label for="testFleet">Fleet</label>
-      <select id="testFleet">
-        <option value="1">1 ship</option><option value="10">10 ships</option>
-        <option value="20">20 ships</option><option value="25">25 ships (full)</option>
-      </select>
-      <label class="toggle test-boss"><input type="checkbox" id="testBoss"> Jump straight to the mothership</label>
-      <label for="tuneRate">Fire rate</label>
-      <div class="tune"><input type="range" id="tuneRate" min="0.4" max="1.5" step="0.05"><output id="tuneRateOut" for="tuneRate">75%</output></div>
-      <label for="tuneDmg">Shot damage</label>
-      <div class="tune"><input type="range" id="tuneDmg" min="0.5" max="2" step="0.05"><output id="tuneDmgOut" for="tuneDmg">125%</output></div>
-      <p class="tune-net"><span id="tuneNet">Damage per second: 94% of original</span><button class="btn" id="tuneReset" type="button">Reset</button></p>
-      <button class="btn test-browse" id="msBrowseBtn" type="button">Browse motherships</button>
-    </fieldset>
+    <button class="go secondary dev-btn" id="devBtn" type="button">Dev tools</button>
   </div>
 </div>
 
@@ -346,6 +335,43 @@ h2{font-size:clamp(28px,8vw,38px);color:var(--hostile);text-shadow:0 0 18px rgba
         <button class="go secondary" id="hangarBtn2" type="button">Hangar</button>
         <button class="go secondary" id="creatorBtn2" type="button">Ship creator</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- TEMPORARY: development tools -->
+<div class="overlay" id="devScreen" hidden>
+  <div class="card wide dev-card">
+    <p class="eyebrow">Development · temporary</p>
+    <h2 class="pick-title">Dev tools</h2>
+      <div class="test-tools">
+        <label for="testSector">Start at</label>
+        <select id="testSector"></select>
+        <label for="testFleet">Fleet</label>
+        <select id="testFleet">
+          <option value="1">1 ship</option><option value="10">10 ships</option>
+          <option value="20">20 ships</option><option value="25">25 ships (full)</option>
+        </select>
+        <label class="toggle test-boss"><input type="checkbox" id="testBoss"> Jump straight to the mothership</label>
+        <label for="tuneRate">Fire rate</label>
+        <div class="tune"><input type="range" id="tuneRate" min="0.4" max="1.5" step="0.05"><output id="tuneRateOut" for="tuneRate">75%</output></div>
+        <label for="tuneDmg">Shot damage</label>
+        <div class="tune"><input type="range" id="tuneDmg" min="0.5" max="2" step="0.05"><output id="tuneDmgOut" for="tuneDmg">125%</output></div>
+        <p class="tune-net"><span id="tuneNet">Damage per second: 94% of original</span><button class="btn" id="tuneReset" type="button">Reset</button></p>
+        <p class="test-sub">Balance systems</p>
+        <div class="test-opts" id="balOpts">
+          <label class="toggle"><input type="checkbox" data-bal="curve"> Diminishing wingmen</label>
+          <label class="toggle"><input type="checkbox" data-bal="director"> Threat director</label>
+          <label class="toggle"><input type="checkbox" data-bal="catchup"> Catch-up help</label>
+          <label class="toggle"><input type="checkbox" data-bal="bossScale"> Mothership scales to fleet</label>
+          <label class="toggle"><input type="checkbox" data-bal="comets"> Comets in asteroid fields</label>
+          <label class="toggle"><input type="checkbox" data-bal="doubleNeg"> Double-negative gates</label>
+        </div>
+        <button class="btn test-browse" id="msBrowseBtn" type="button">Browse motherships</button>
+      </div>
+    <div class="action-pair">
+      <button class="go" id="devLaunch" type="button">Launch</button>
+      <button class="go secondary" id="devDone" type="button">Done</button>
     </div>
   </div>
 </div>
@@ -502,6 +528,11 @@ const BASE_VOLLEY = 0.11;
 const BASE_DEFAULTS = { rate: 0.75, dmg: 1.25 };
 const BASE = { ...BASE_DEFAULTS };
 try { Object.assign(BASE, JSON.parse(localStorage.getItem('warpLaneTune')) || {}); } catch (e) {}
+// TEMPORARY: balance systems that can be switched on and off from the test tools
+const BAL_DEFAULTS = { curve: true, director: true, catchup: true, bossScale: true, comets: true, doubleNeg: true };
+const BAL = { ...BAL_DEFAULTS };
+try { Object.assign(BAL, JSON.parse(localStorage.getItem('warpLaneBalance')) || {}); } catch (e) {}
+const CATCHUP_MIN = 6;          // catch-up help keeps the fleet at least this big after each warp
 const SHIP_Y = 0.55;
 
 const WEAPONS = {
@@ -769,6 +800,14 @@ const ENEMY = {
     hp: 66, speed: 0.9, str: 15, r: 3.0, boss: true,
   },
   // asteroid-field hazards between sectors
+  comet: {
+    geo: merge([
+      part(new THREE.IcosahedronGeometry(0.85, 1), 0x9fdcff),
+      part(new THREE.IcosahedronGeometry(0.5, 0), new THREE.Color(0xe8fbff).multiplyScalar(1.5), [0, 0.1, 0.45]),
+      part(rockGeo(), 0x5f7c98, [0.35, 0.3, -0.2], [0, 0, 0], [0.5, 0.45, 0.5]),
+    ]),
+    hp: 12.6, speed: 9, str: 3, r: 0.9, tumble: true, comet: true,
+  },
   rock: {
     geo: merge([part(rockGeo(), 0x8d8296, [0, 0, 0], [0, 0, 0], [0.55, 0.48, 0.55])]),
     hp: 1.4, speed: 0.6, str: 1, r: 0.6, tumble: true,
@@ -794,16 +833,26 @@ const MOTHERSHIPS = (() => {
   const deck = (W, L, t, y, z, col) => [-1, 1].map(s => part(wingGeo(W, L, 0.08, -L / 2, t, s), col, [0, y, z]));
   const list = [];
   list.push({ name: 'Saucer Carrier', geo: ENEMY.mothership.geo });
+  // A smooth wedge: sharp bow at +z, rising to a tall stern with a keel underneath.
+  const wedgeHull = (L, W, up, down) => {
+    const Bw = [0, 0, L / 2], SL = [-W, 0, -L / 2], SR = [W, 0, -L / 2], T = [0, up, -L / 2], K = [0, -down, -L / 2];
+    const tris = [Bw, SR, T, Bw, T, SL, Bw, K, SR, Bw, SL, K, SL, T, SR, SL, SR, K];
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(tris.flat()), 3));
+    g.computeVertexNormals();
+    return g;
+  };
   list.push({ name: 'Wedge Destroyer', geo: merge([
-    ...deck(2.8, 6.6, 0.5, 0, 0, 0xb8bcc8),
-    ...deck(2.0, 4.8, 0.45, 0.45, -0.85, 0x9aa0ae),
-    ...deck(1.2, 3.0, 0.4, 0.85, -1.75, 0x8a90a0),
-    part(B(0.06, 0.08, 5.6), 0x3a3f4a, [0, 0.27, 0.4]),
-    part(B(0.55, 0.9, 0.7), 0x9aa0ae, [0, 1.45, -2.6]),
-    part(B(1.7, 0.38, 0.55), 0xb8bcc8, [0, 2.0, -2.6]),
-    part(B(1.2, 0.08, 0.06), lit(0x6ad0ff), [0, 2.0, -2.31]),
-    ...[-1, 1].map(s => part(Sp(0.22, 10, 8), 0xb8bcc8, [s * 0.68, 2.3, -2.6])),
-    ...[-0.95, 0, 0.95].map(x => part(Cy(0.34, 0.34, 0.12, 10), lit(0x6ad0ff), [x, 0.2, -3.32], FWD)),
+    part(wedgeHull(6.8, 2.7, 1.0, 0.45), 0x8f95a3),
+    part(wedgeHull(6.95, 2.76, 0.03, 0.03), 0x2a2e38, [0, 0.0, -0.02]),          // dark rim along the hull edge
+    part(B(0.1, 0.05, 3.7), 0x2a2e38, [0, 0.27, 1.55], [0.146, 0, 0]),           // spine trench up the bow slope
+    part(wedgeHull(3.2, 1.05, 1.0, 0.05), 0xc4c8d2, [0, 0.42, -1.75]),          // sloped command section
+    part(Cy(0.16, 0.26, 0.6, 8), 0x9aa0ae, [0, 1.38, -2.75]),                    // bridge neck
+    part(B(1.5, 0.2, 0.42), 0xb8bcc8, [0, 1.72, -2.75]),
+    part(B(1.1, 0.05, 0.04), lit(0x6ad0ff), [0, 1.72, -2.53]),
+    ...[-1, 1].map(s => part(Sp(0.15, 10, 8), 0xb8bcc8, [s * 0.58, 1.9, -2.75])),
+    ...[-0.95, 0, 0.95].map(x => part(Cy(0.3, 0.3, 0.1, 12), lit(0x6ad0ff), [x, 0.18, -3.42], FWD)),
+    ...[-0.5, 0.5].map(x => part(Cy(0.16, 0.16, 0.1, 10), lit(0x6ad0ff), [x, 0.52, -3.42], FWD)),
   ]) });
   list.push({ name: 'Lattice Cube', geo: (() => {
     // a huge cube covered in machinery panels with glowing seams; seeded so it always looks the same
@@ -949,7 +998,7 @@ const S = {
   dist: 0, kills: 0, k: 0, nextEvent: 2, speed: 10, ws: 5,
   volleyT: 0, shake: 0, boss: null, best: 0, badgeX: 0, badgeY: 0,
   // sector flow: 'combat' → (mothership gone) 'field' → 'warp' → next sector's 'combat'
-  phase: 'combat', phaseT: 0, sector: 1, rockT: 0, fleetOff: 0, fleetVel: 0, warpAmt: 0, flash: 0, jumped: false, snap: false, cleared: false, clearT: 0, leadZ: 0, paused: false,
+  phase: 'combat', phaseT: 0, sector: 1, rockT: 0, fleetOff: 0, fleetVel: 0, warpAmt: 0, flash: 0, jumped: false, snap: false, cleared: false, clearT: 0, leadZ: 0, paused: false, comets: 0,
 };
 // storage keys keep the original "warpLane" names so existing best scores, settings and ships carry over
 try { S.best = +localStorage.getItem('warpLaneBest') || 0; } catch (e) {}
@@ -961,7 +1010,9 @@ let enemies = [], bolts = [], orbs = [], parts = [], gates = [];
 
 const powerMult = () => 1 + POWER_STEP * S.powerLv;
 const rateMult = () => 1 + RATE_STEP * S.rateLv;
-const dps = () => BASE_DPS * (1 + WING_DPS * Math.max(0, S.count - 1)) * powerMult() * rateMult() * BASE.rate * BASE.dmg;
+// fleet firepower in lead-ship units: linear, or a square-root curve so each extra wingman adds a little less
+const fleetPower = n => { const w = Math.max(0, n - 1); return BAL.curve ? 1 + 1.6 * Math.sqrt(w) : 1 + WING_DPS * w; };
+const dps = () => BASE_DPS * fleetPower(S.count) * powerMult() * rateMult() * BASE.rate * BASE.dmg;
 const volleyInterval = () => BASE_VOLLEY / (rateMult() * BASE.rate);
 const HP_MULT = 0.8;              // global enemy toughness (tuned down 20%)
 // Enemy difficulty by event number k (12 events per sector). Sector 1 climbs 0 to 11; each later
@@ -1046,9 +1097,17 @@ function burst(x, y, z, color, n, spd = 5, size = 1, life = 0.7) {
 
 // ---------- spawning ----------
 // t, when given, overrides the difficulty level that k would imply (used by asteroids)
+// Threat director: compare current firepower with a reference fleet for this point in the game and
+// nudge enemy health, softened by a square root and capped between 25% easier and 30% harder.
+function directorMult(k) {
+  if (!BAL.director) return 1;
+  const refShips = clamp(3 + threat(k) * 1.2, 3, 20);
+  const ref = BASE_DPS * fleetPower(refShips) * BASE.rate * BASE.dmg;
+  return clamp(Math.sqrt(dps() / ref), 0.75, 1.3);
+}
 function addEnemy(type, x, z, k, t) {
   const T = ENEMY[type];
-  const hp = BASE_DPS * T.hp * (t === undefined ? hpScale(k) : 1 + 0.085 * t) * HP_MULT;
+  const hp = BASE_DPS * T.hp * (t === undefined ? hpScale(k) : 1 + 0.085 * t) * HP_MULT * (T.boss ? 1 : directorMult(k));
   const e = { type, x, z, y: type === 'mothership' ? 1.2 : 0.6, hp, maxHp: hp, flash: 0, phase: rand(0, 6.28), fireT: rand(1, 2.5), hold: 0 };
   enemies.push(e);
   return e;
@@ -1126,7 +1185,14 @@ function spawnGates(k) {
   let a, b;
   if (k === 0) { a = { kind: 'add', value: 6 }; b = { kind: 'add', value: -2 }; }
   else if (k === 3) { a = { kind: 'weapon', value: Math.random() < 0.5 ? 'missile' : 'laser' }; b = genBad(k); }
-  else { a = genGood(k); b = genBad(k); }   // every pair offers one bonus and one penalty
+  else if (BAL.doubleNeg && S.count >= MAX_SHIPS - 1 && Math.random() < 0.5) {
+    // a full fleet sometimes meets two penalties; shooting the −x gate up is the way out
+    a = { kind: 'div', value: 2 }; b = { kind: 'add', value: -Math.round(4 + k * 0.3 + rand(0, 3)) };
+  } else if (BAL.catchup && S.count < CATCHUP_MIN) {
+    // catch-up help: a small fleet always gets a ship bonus, and the penalty is halved
+    a = { kind: 'add', value: Math.round(4 + k * 0.3 + rand(0, 3)) }; b = genBad(k);
+    if (b.kind === 'add') b.value = Math.min(-1, Math.round(b.value / 2));
+  } else { a = genGood(k); b = genBad(k); }   // every pair offers one bonus and one penalty
   if (Math.random() < 0.5) [a, b] = [b, a];
   const group = new THREE.Group();
   const pair = { z: SPAWN_Z, group, sides: [] };
@@ -1164,6 +1230,10 @@ function spawnEvent() {
     setMothershipLook(style);
     S.boss = addEnemy('mothership', 0, SPAWN_Z - 6, k);
     S.boss.label = style.name.toUpperCase();
+    if (BAL.bossScale) {   // scale to fleet firepower relative to a 10-ship fleet, ×0.5 to ×2
+      const m = clamp(fleetPower(S.count) / fleetPower(10), 0.5, 2);
+      S.boss.hp *= m; S.boss.maxHp *= m;
+    }
     $('bossName').textContent = S.boss.label + ' · SHIELDED';
     $('bossBar').hidden = false;
     SFX.alarm();
@@ -1221,7 +1291,12 @@ function killEnemy(i, credit = true) {
   burst(e.x, e.y, e.z, 0xff4d6d, big ? 80 : 6 + sz * 6, big ? 10 : 4, big ? 2 : 1, big ? 1.2 : 0.6);
   burst(e.x, e.y, e.z, 0xffffff, big ? 40 : 3, big ? 6 : 2, big ? 4 : 2, 0.25);
   SFX.boom(big);
-  if (T.tumble) burst(e.x, e.y, e.z, 0xb8aec4, 8 + sz * 10, 4 + sz * 2, 1.2 + sz * 0.4, 0.8);
+  if (T.tumble) burst(e.x, e.y, e.z, T.comet ? 0x9fe6ff : 0xb8aec4, 8 + sz * 10, 4 + sz * 2, 1.2 + sz * 0.4, 0.8);
+  if (T.comet && credit) {   // destroying a comet is rewarded with ships
+    const add = Math.min(3, MAX_SHIPS - S.count);
+    if (add > 0) { S.count += add; popup('COMET DOWN +' + add, 'good'); } else popup('COMET DOWN', 'gold');
+    SFX.good();
+  }
   if (big) { S.shake = 1; if (credit) popup((e.label || 'MOTHERSHIP') + ' DOWN', 'gold'); onBossGone(); }
   if (credit) S.kills++;
   e.dead = true;
@@ -1284,6 +1359,11 @@ function splash(x, z, dmg, radius, color) {
     const e = enemies[j], d = Math.hypot(e.x - x, e.z - z);
     if (d < radius + ENEMY[e.type].r) damageEnemy(j, dmg * 0.6);
   }
+  // blasts also clear enemy missiles and orbs; they're marked and removed after the projectile pass
+  for (const q of orbs) {
+    if (!q.enemy || q.dead || Math.hypot(q.x - x, q.z - z) > radius) continue;
+    q.dead = true; burst(q.x, 0.6, q.z, q.missile ? 0xffa040 : 0xff4d6d, 8, 3, 1, 0.4);
+  }
 }
 
 function updateProjectiles(dt) {
@@ -1301,7 +1381,7 @@ function updateProjectiles(dt) {
     if (!dead) {
       for (let j = orbs.length - 1; j >= 0; j--) {
         const o = orbs[j];
-        if (o.enemy && Math.abs(o.x - s.x) < 0.4 && o.z > s.z - 0.4 && o.z < z0 + 0.4) {
+        if (o.enemy && !o.dead && Math.abs(o.x - s.x) < 0.4 && o.z > s.z - 0.4 && o.z < z0 + 0.4) {
           o.hits = (o.hits || 1) - 1;   // gunship orbs pop in one hit; mothership missiles take a few
           if (o.hits <= 0) { burst(o.x, 0.6, o.z, o.missile ? 0xffa040 : 0xff4d6d, o.missile ? 12 : 6, 3, 1, 0.4); orbs.splice(j, 1); }
           else burst(o.x, 0.6, o.z + 0.3, 0xffd36a, 2, 2, 0.6, 0.2);
@@ -1326,6 +1406,7 @@ function updateProjectiles(dt) {
   // orbs: plasma (player) and enemy shots
   for (let o = orbs.length - 1; o >= 0; o--) {
     const s = orbs[o], z0 = s.z;
+    if (s.dead) continue;
     s.x += s.vx * dt; s.z += s.vz * dt;
     if (s.enemy) {
       if (s.missile) {
@@ -1342,6 +1423,15 @@ function updateProjectiles(dt) {
     let dead = s.z < BULLET_END;
     if (!dead && hitGate(s.x, z0, s.z, s.dmg)) dead = true;
     if (!dead) {
+      // plasma detonates on enemy missiles and orbs too
+      for (const q of orbs) {
+        if (!q.enemy || q.dead || Math.abs(q.x - s.x) > 0.5 || q.z < s.z - 0.5 || q.z > z0 + 0.5) continue;
+        q.dead = true;
+        splash(s.x, q.z, s.dmg, WEAPONS.plasma.splash, WEAPONS.plasma.color);
+        dead = true; break;
+      }
+    }
+    if (!dead) {
       for (let j = enemies.length - 1; j >= 0; j--) {
         const e = enemies[j], r = ENEMY[e.type].r + 0.2;
         if (e.z + r < s.z || e.z - r > z0 || Math.abs(e.x - s.x) > r) continue;
@@ -1351,8 +1441,9 @@ function updateProjectiles(dt) {
         dead = true; break;
       }
     }
-    if (dead) orbs.splice(o, 1);
+    if (dead) s.dead = true;
   }
+  if (orbs.some(q => q.dead)) orbs = orbs.filter(q => !q.dead);
 }
 
 function enemyFire(e, n, dmg) {
@@ -1399,6 +1490,11 @@ function updateEnemies(dt, t) {
     } else {
       e.z += (S.ws + T.speed) * dt;
       if (T.weave) e.x += Math.sin(t * 2.2 + e.phase) * 1.3 * dt;
+      if (T.comet) {   // fast diagonal run with a streaming tail, bouncing off the rails
+        e.x += e.vx * dt;
+        if (Math.abs(e.x) > LANE - 1) e.vx = -Math.sign(e.x) * Math.abs(e.vx);
+        burst(e.x, e.y, e.z - 0.9, Math.random() < 0.5 ? 0x9fe6ff : 0xffffff, 1, 1.2, 1.4, 0.6);
+      }
       if (T.home && e.z > LEAD_Z - 25) { const dx = S.sx - e.x; e.x += Math.sign(dx) * Math.min(Math.abs(dx), (e.type === 'drone' ? 2.4 : 0.9) * dt); }
       if (T.fires && e.z > -66 && e.z < S.leadZ - 10 && S.state === 'play') {
         e.fireT -= dt;
@@ -1442,10 +1538,16 @@ function banner(title, sub) {
 function onBossGone() {
   S.boss = null; $('bossBar').hidden = true;
   if (S.state !== 'play' || S.phase !== 'combat') return;
-  S.phase = 'field'; S.phaseT = 0; S.rockT = 0.9; S.cleared = false;
+  S.phase = 'field'; S.phaseT = 0; S.rockT = 0.9; S.cleared = false; S.comets = 0;
   banner('ASTEROID FIELD', 'Dodge or blast through to reach the warp point');
   // seed the near half of the lane so the first rocks arrive within a few seconds
   for (let z = LEAD_Z - 38; z > SPAWN_Z; z -= rand(6, 10)) spawnRocks(0, z);
+}
+function spawnComet() {
+  const x = rand(-3.5, 3.5);
+  const e = addEnemy('comet', x, SPAWN_Z, S.k, 6 + (S.sector - 1) * 2);
+  e.vx = rand(1, 2) * (x > 0 ? -1 : 1);
+  popup('COMET INBOUND', 'bad'); SFX.tick();
 }
 function spawnRocks(progress, z = SPAWN_Z) {
   const n = 1 + (Math.random() < 0.5 ? 1 : 0) + (Math.random() < progress * 0.7 ? 1 : 0);
@@ -1480,6 +1582,7 @@ function updatePhase(dt) {
   } else if (S.phase === 'field') {
     fireIfReady(dt);
     if (p < FIELD_TIME) {
+      if (BAL.comets && S.comets < 2 && p > 3 + S.comets * 5) { S.comets++; spawnComet(); }
       S.rockT -= dt;
       if (S.rockT <= 0) { S.rockT = 0.95 - 0.55 * (p / FIELD_TIME); spawnRocks(p / FIELD_TIME); }
     } else if (!S.cleared) {
@@ -1509,6 +1612,10 @@ function updatePhase(dt) {
       S.fleetOff = 15; S.fleetVel = 0; S.snap = true; S.flash = 1; S.ws = 90;
       const T = themeAt(S.sector);
       banner('SECTOR ' + S.sector, T.name);
+      if (BAL.catchup && S.count < CATCHUP_MIN) {
+        const add = CATCHUP_MIN - S.count; S.count = CATCHUP_MIN;
+        setTimeout(() => popup('REINFORCEMENTS +' + add, 'good'), 900);
+      }
     } else {                            // arrive from the bottom of the screen
       S.flash = Math.max(0, 1 - (p - 2.5) / 0.7);
       S.ws += (S.speed - S.ws) * Math.min(1, dt * 1.8);
@@ -2698,11 +2805,11 @@ const MSBrowser = (() => {
   function loop() { if (!open) return; requestAnimationFrame(loop); controls.update(); R.render(sc, cam); }
   function openIt() {
     if (!R) init();
-    $('startScreen').hidden = true; el.hidden = false; open = true;
+    $('devScreen').hidden = true; el.hidden = false; open = true;
     show(Math.max(0, (+$('testSector').value || 1) - 1)); resize(); loop();
     $('msNext').focus({ preventScroll: true });
   }
-  function close() { open = false; el.hidden = true; $('startScreen').hidden = false; $('msBrowseBtn').focus({ preventScroll: true }); }
+  function close() { open = false; el.hidden = true; $('devScreen').hidden = false; $('msBrowseBtn').focus({ preventScroll: true }); }
   $('msBrowseBtn').onclick = openIt;
   return { isOpen: () => open };
 })();
@@ -2717,7 +2824,7 @@ function reset() {
   enemies = []; bolts = []; orbs = []; parts = []; gates = [];
   trail.length = 0;
   Object.assign(S, { count: 1, rendered: 0, powerLv: 0, rateLv: 0, weapon: 'blaster', weaponT: 0, clock: 0, sx: 0, prevSx: 0, targetX: 0, dist: 0, kills: 0, k: 0, nextEvent: 2, speed: 10, volleyT: 0, shake: 0, boss: null,
-    phase: 'combat', phaseT: 0, sector: 1, rockT: 0, fleetOff: 0, fleetVel: 0, warpAmt: 0, flash: 0, jumped: false, snap: false, cleared: false, clearT: 0, leadZ: CAM.tailZ - 0.5, paused: false });
+    phase: 'combat', phaseT: 0, sector: 1, rockT: 0, fleetOff: 0, fleetVel: 0, warpAmt: 0, flash: 0, jumped: false, snap: false, cleared: false, clearT: 0, leadZ: CAM.tailZ - 0.5, paused: false, comets: 0 });
   applyTheme(1);
   $('banner').hidden = true;
   glowMat.color.setHex(WEAPONS.blaster.color);
@@ -2750,6 +2857,10 @@ function gameOver() {
   setTimeout(() => { if (S.state === 'over') { $('overScreen').hidden = false; $('againBtn').focus({ preventScroll: true }); } }, 900);
 }
 $('startBtn').addEventListener('click', start);
+// TEMPORARY: development tools modal
+$('devBtn').addEventListener('click', () => { $('startScreen').hidden = true; $('devScreen').hidden = false; $('devDone').focus({ preventScroll: true }); });
+$('devDone').addEventListener('click', () => { $('devScreen').hidden = true; $('startScreen').hidden = false; $('devBtn').focus({ preventScroll: true }); });
+$('devLaunch').addEventListener('click', () => { $('devScreen').hidden = true; start(); });
 // TEMPORARY: live tuning of the starting fire rate and shot damage
 function syncTune() {
   const pct = v => Math.round(v * 100) + '%';
@@ -2762,6 +2873,13 @@ $('tuneRate').addEventListener('input', e => { BASE.rate = +e.target.value; sync
 $('tuneDmg').addEventListener('input', e => { BASE.dmg = +e.target.value; syncTune(); });
 $('tuneReset').addEventListener('click', () => { Object.assign(BASE, BASE_DEFAULTS); syncTune(); });
 syncTune();
+for (const box of document.querySelectorAll('#balOpts input')) {
+  box.checked = !!BAL[box.dataset.bal];
+  box.addEventListener('change', () => {
+    BAL[box.dataset.bal] = box.checked;
+    try { localStorage.setItem('warpLaneBalance', JSON.stringify(BAL)); } catch (e) {}
+  });
+}
 THEMES.forEach((T, i) => $('testSector').add(new Option('Sector ' + (i + 1) + ' · ' + T.name + ' · ' + MOTHERSHIPS[i].name, i + 1)));
 $('againBtn').addEventListener('click', start);
 function setPaused(p) {
