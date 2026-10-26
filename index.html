@@ -358,7 +358,18 @@ h2{font-size:clamp(28px,8vw,38px);color:var(--hostile);text-shadow:0 0 18px rgba
         <label for="tuneDmg">Shot damage</label>
         <div class="tune"><input type="range" id="tuneDmg" min="0.5" max="2" step="0.05"><output id="tuneDmgOut" for="tuneDmg">125%</output></div>
         <p class="tune-net"><span id="tuneNet">Damage per second: 94% of original</span><button class="btn" id="tuneReset" type="button">Reset</button></p>
-        <p class="test-sub">Balance systems</p>
+        <p class="test-sub">Enemy behavior · 100% is the normal game</p>
+      <label for="tuneBlock">Gate shot blocking</label>
+      <div class="tune"><input type="range" id="tuneBlock" min="0" max="1" step="0.05"><output id="tuneBlockOut" for="tuneBlock">100%</output></div>
+      <label for="tuneAmbush">Ambush behind gates</label>
+      <div class="tune"><input type="range" id="tuneAmbush" min="0" max="2" step="0.1"><output id="tuneAmbushOut" for="tuneAmbush">100%</output></div>
+      <label for="tuneCluster">Enemy clustering</label>
+      <div class="tune"><input type="range" id="tuneCluster" min="0" max="2" step="0.1"><output id="tuneClusterOut" for="tuneCluster">100%</output></div>
+      <label for="tuneEnemyGrowth">Enemy HP growth</label>
+      <div class="tune"><input type="range" id="tuneEnemyGrowth" min="0" max="2" step="0.1"><output id="tuneEnemyGrowthOut" for="tuneEnemyGrowth">100%</output></div>
+      <label for="tuneRockGrowth">Asteroid &amp; comet HP growth</label>
+      <div class="tune"><input type="range" id="tuneRockGrowth" min="0" max="2" step="0.1"><output id="tuneRockGrowthOut" for="tuneRockGrowth">100%</output></div>
+      <p class="test-sub">Balance systems</p>
         <div class="test-opts" id="balOpts">
           <label class="toggle"><input type="checkbox" data-bal="curve"> Diminishing wingmen</label>
           <label class="toggle"><input type="checkbox" data-bal="director"> Threat director</label>
@@ -525,7 +536,9 @@ const WEAPON_TIME = 30, WEAPON_EXTEND = 20, WEAPON_MAX = 45;   // seconds a weap
 const BASE_VOLLEY = 0.11;
 // Starting fire rate and damage per shot, relative to the original tuning. Upgrades multiply on top.
 // TEMPORARY: both can be tuned from the test tools; the defaults are the current pick.
-const BASE_DEFAULTS = { rate: 0.75, dmg: 1.25 };
+// block, ambush and cluster are enemy-behaviour levels: 1 is the normal game, lower is gentler
+// enemyGrowth and rockGrowth scale how fast enemy and asteroid health rise with progress
+const BASE_DEFAULTS = { rate: 0.75, dmg: 1.25, block: 1, ambush: 1, cluster: 1, enemyGrowth: 1, rockGrowth: 1 };
 const BASE = { ...BASE_DEFAULTS };
 try { Object.assign(BASE, JSON.parse(localStorage.getItem('warpLaneTune')) || {}); } catch (e) {}
 // TEMPORARY: balance systems that can be switched on and off from the test tools
@@ -1022,7 +1035,9 @@ function threat(k) {
   const sec = Math.floor(k / EVENTS_PER_SECTOR), kin = k % EVENTS_PER_SECTOR;
   return sec === 0 ? kin : 6 + (sec - 1) * 4 + kin * 0.5;
 }
-const hpScale = k => 1 + 0.085 * threat(k);
+const hpScale = k => 1 + 0.085 * threat(k) * BASE.enemyGrowth;
+// asteroid and comet toughness: level 6 in the first field, rising 2 per sector at normal growth
+const rockLevel = () => 6 + (S.sector - 1) * 2 * BASE.rockGrowth;
 
 // ---------- audio ----------
 const AC = { ctx: null, out: null, noise: null, muted: false, last: {} };
@@ -1117,8 +1132,10 @@ function spawnWave(k) {
   let n = Math.round(4 + t * 0.6 + rand(0, 3));
   const droneP = t >= 2 ? clamp(0.12 + (t - 2) * 0.02, 0, 0.35) : 0;
   const gunP = t >= 5 ? clamp(0.04 + (t - 5) * 0.008, 0, 0.14) : 0;
-  const wide = Math.random() < 0.35;
-  const cx = rand(-3, 3), spread = 1 + n * 0.035, depth = 5 + n * 0.22;
+  // clustering 1 is normal; lower spreads waves across the lane, higher packs them tighter
+  const loose = 1.6 - 0.6 * BASE.cluster;
+  const wide = Math.random() < 0.35 * (2 - BASE.cluster);
+  const cx = rand(-3, 3), spread = (1 + n * 0.035) * loose, depth = (5 + n * 0.22) * (1.5 - 0.5 * BASE.cluster);
   for (let i = 0; i < n; i++) {
     const r = Math.random();
     const type = r < gunP ? 'gunship' : r < gunP + droneP ? 'drone' : 'raider';
@@ -1240,7 +1257,8 @@ function spawnEvent() {
     S.nextEvent = 30;
     return;
   }
-  if (k % 3 === 0) { spawnGates(k); S.nextEvent = 24; return; }
+  // the gap after a gate pair sets how close the next wave follows it (ambush 1 = 24, 0 = 38, 2 = 10)
+  if (k % 3 === 0) { spawnGates(k); S.nextEvent = 24 * (1.6 - 0.6 * BASE.ambush); return; }
   const n = spawnWave(k);
   S.nextEvent = 26 + n * 0.25;
 }
@@ -1347,7 +1365,7 @@ function hitGate(x, z0, z1, dmg) {
     while (g.acc >= step && g.value < g.cap) { g.acc -= step; g.value++; changed = true; }
     if (changed) { drawGate(g); SFX.tick(); }
     burst(x, 1.0, pair.z + 0.1, `rgb(${gateRGB(g)})`, 2, 2, 0.8, 0.3);
-    return true;
+    return Math.random() < BASE.block;   // the hit always counts; the shot is stopped only some of the time
   }
   return false;
 }
@@ -1545,7 +1563,7 @@ function onBossGone() {
 }
 function spawnComet() {
   const x = rand(-3.5, 3.5);
-  const e = addEnemy('comet', x, SPAWN_Z, S.k, 6 + (S.sector - 1) * 2);
+  const e = addEnemy('comet', x, SPAWN_Z, S.k, rockLevel());
   e.vx = rand(1, 2) * (x > 0 ? -1 : 1);
   popup('COMET INBOUND', 'bad'); SFX.tick();
 }
@@ -1554,7 +1572,7 @@ function spawnRocks(progress, z = SPAWN_Z) {
   for (let i = 0; i < n; i++) {
     const type = Math.random() < 0.28 + progress * 0.12 ? 'boulder' : 'rock';
     // asteroids toughen at half the ship rate: the first field is level 6, each later one +2
-    addEnemy(type, rand(-LANE + 0.8, LANE - 0.8), z - rand(0, 6), S.k, 6 + (S.sector - 1) * 2);
+    addEnemy(type, rand(-LANE + 0.8, LANE - 0.8), z - rand(0, 6), S.k, rockLevel());
   }
 }
 function tickWeapon(dt) {
@@ -2862,15 +2880,14 @@ $('devBtn').addEventListener('click', () => { $('startScreen').hidden = true; $(
 $('devDone').addEventListener('click', () => { $('devScreen').hidden = true; $('startScreen').hidden = false; $('devBtn').focus({ preventScroll: true }); });
 $('devLaunch').addEventListener('click', () => { $('devScreen').hidden = true; start(); });
 // TEMPORARY: live tuning of the starting fire rate and shot damage
+const TUNE_SLIDERS = { tuneRate: 'rate', tuneDmg: 'dmg', tuneBlock: 'block', tuneAmbush: 'ambush', tuneCluster: 'cluster', tuneEnemyGrowth: 'enemyGrowth', tuneRockGrowth: 'rockGrowth' };
 function syncTune() {
   const pct = v => Math.round(v * 100) + '%';
-  $('tuneRate').value = BASE.rate; $('tuneDmg').value = BASE.dmg;
-  $('tuneRateOut').textContent = pct(BASE.rate); $('tuneDmgOut').textContent = pct(BASE.dmg);
+  for (const id in TUNE_SLIDERS) { $(id).value = BASE[TUNE_SLIDERS[id]]; $(id + 'Out').textContent = pct(BASE[TUNE_SLIDERS[id]]); }
   $('tuneNet').textContent = 'Damage per second: ' + pct(BASE.rate * BASE.dmg) + ' of original';
   try { localStorage.setItem('warpLaneTune', JSON.stringify(BASE)); } catch (e) {}
 }
-$('tuneRate').addEventListener('input', e => { BASE.rate = +e.target.value; syncTune(); });
-$('tuneDmg').addEventListener('input', e => { BASE.dmg = +e.target.value; syncTune(); });
+for (const id in TUNE_SLIDERS) $(id).addEventListener('input', e => { BASE[TUNE_SLIDERS[id]] = +e.target.value; syncTune(); });
 $('tuneReset').addEventListener('click', () => { Object.assign(BASE, BASE_DEFAULTS); syncTune(); });
 syncTune();
 for (const box of document.querySelectorAll('#balOpts input')) {
