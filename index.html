@@ -304,7 +304,7 @@ h2{font-size:clamp(28px,8vw,38px);color:var(--hostile);text-shadow:0 0 18px rgba
       <li><span class="key">← → · A D</span><span>Steer with the keyboard.</span></li>
       <li><span class="key">Gates</span><span><span class="c-good">Blue</span> adds ships, <span class="c-bad">red</span> costs ships. Shoot a red ship gate to flip it.</span></li>
       <li><span class="key">Sectors</span><span>Destroy the mothership, survive the asteroid field, then warp to the next sector.</span></li>
-      <li><span class="key">Upgrades</span><span><span class="c-gold">Gold</span> gates boost power or fire rate. Weapon gates give Missiles, Laser or Plasma for 30 seconds.</span></li>
+      <li><span class="key">Upgrades</span><span><span class="c-gold">Gold</span> gates boost power or fire rate. Weapon gates give Missiles, Laser or Ion Burst for 30 seconds.</span></li>
     </ul>
     <div class="card-actions">
       <button class="go" id="startBtn" type="button">Launch</button>
@@ -513,6 +513,7 @@ const $ = id => document.getElementById(id);
 const flashEl = $('flash');
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
 const fmt = n => Math.floor(n).toLocaleString('en-US');
 
 // ---------- constants ----------
@@ -552,7 +553,7 @@ const WEAPONS = {
   blaster: { name: 'Blaster', color: 0x7fe6ff, speed: 85,  len: 0.9, w: 0.07, dmg: 1.0,  spread: [0] },
   missile: { name: 'Missiles', color: 0xffd24a, speed: 60, len: 0.55, w: 0.13, dmg: 0.85, spread: [0], homing: true, splash: 1.3, trail: true },
   laser:   { name: 'Laser',   color: 0xff5cf0, speed: 150, len: 2.6, w: 0.05, dmg: 0.75, spread: [0], pierce: true },
-  plasma:  { name: 'Plasma',  color: 0xffa040, speed: 50,  orb: true, dmg: 1.15, spread: [0], splash: 1.7 },
+  ion:     { name: 'Ion Burst', color: 0x9a7dff, speed: 50, orb: true, dmg: 1.15, spread: [0], splash: 1.7 },
 };
 
 // ---------- renderer / scene ----------
@@ -563,6 +564,8 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x070818, 70, 135);
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 900);
 const CAM = { fov: 55, y: 8, z: 8, lz: -13, tailZ: 0.8 };
+const ZOOM_TIME = 2;   // seconds to pull back from the lead fighter when a sector begins
+const ZOOM_PITCH = THREE.MathUtils.degToRad(88), ZOOM_DIST = 5;   // the zoomed-in view: nearly straight down, close
 
 scene.add(new THREE.HemisphereLight(0x9fc0ff, 0x2a1040, 0.75));
 const key = new THREE.DirectionalLight(0xffffff, 0.95); key.position.set(3, 9, 10); scene.add(key);
@@ -855,17 +858,19 @@ const MOTHERSHIPS = (() => {
     g.computeVertexNormals();
     return g;
   };
-  list.push({ name: 'Wedge Destroyer', geo: merge([
-    part(wedgeHull(6.8, 2.7, 1.0, 0.45), 0x8f95a3),
-    part(wedgeHull(6.95, 2.76, 0.03, 0.03), 0x2a2e38, [0, 0.0, -0.02]),          // dark rim along the hull edge
-    part(B(0.1, 0.05, 3.7), 0x2a2e38, [0, 0.27, 1.55], [0.146, 0, 0]),           // spine trench up the bow slope
-    part(wedgeHull(3.2, 1.05, 1.0, 0.05), 0xc4c8d2, [0, 0.42, -1.75]),          // sloped command section
-    part(Cy(0.16, 0.26, 0.6, 8), 0x9aa0ae, [0, 1.38, -2.75]),                    // bridge neck
-    part(B(1.5, 0.2, 0.42), 0xb8bcc8, [0, 1.72, -2.75]),
-    part(B(1.1, 0.05, 0.04), lit(0x6ad0ff), [0, 1.72, -2.53]),
-    ...[-1, 1].map(s => part(Sp(0.15, 10, 8), 0xb8bcc8, [s * 0.58, 1.9, -2.75])),
-    ...[-0.95, 0, 0.95].map(x => part(Cy(0.3, 0.3, 0.1, 12), lit(0x6ad0ff), [x, 0.18, -3.42], FWD)),
-    ...[-0.5, 0.5].map(x => part(Cy(0.16, 0.16, 0.1, 10), lit(0x6ad0ff), [x, 0.52, -3.42], FWD)),
+  // A low arrowhead flanked by two engine nacelles, with a swept dorsal fin and a sunken canopy
+  list.push({ name: 'Spearhead Destroyer', geo: merge([
+    part(wedgeHull(6.0, 1.9, 0.55, 0.35), 0x5c6270),
+    part(wedgeHull(6.1, 1.95, 0.02, 0.02), lit(0xff9a3c), [0, 0, -0.02]),         // glowing seam along the hull edge
+    part(wedgeHull(2.4, 0.7, 0.35, 0.02), 0x3a3f4a, [0, 0.2, 0.9]),             // raised prow plate
+    ...[-1, 1].map(s => part(B(1.6, 0.14, 1.1), 0x474c58, [s * 1.55, 0, -1.9])),  // stub pylons
+    ...[-1, 1].map(s => part(Cy(0.38, 0.46, 3.4, 10), 0x6c7280, [s * 2.3, 0, -1.6], FWD)),   // engine nacelles
+    ...[-1, 1].map(s => part(Co(0.38, 0.8, 10), 0x474c58, [s * 2.3, 0, 0.5], FWD)),
+    ...[-1, 1].map(s => part(Cy(0.34, 0.34, 0.1, 10), lit(0xff7a2a), [s * 2.3, 0, -3.32], FWD)),
+    part(wingGeo(0.9, 1.6, 0.25, -0.8, 0.08, 1), 0x474c58, [0, 0.5, -2.2], [0, 0, HALF]),   // swept dorsal fin
+    part(Sp(0.42, 12, 8), 0x2a2e38, [0, 0.42, -1.0], [0, 0, 0], [1.1, 0.45, 2.0]),           // low sunken canopy
+    part(B(0.5, 0.04, 0.5), lit(0xffb35c), [0, 0.6, -0.75]),
+    part(Cy(0.3, 0.3, 0.1, 6), lit(0xff7a2a), [0, 0.12, -3.02], FWD),
   ]) });
   list.push({ name: 'Lattice Cube', geo: (() => {
     // a huge cube covered in machinery panels with glowing seams; seeded so it always looks the same
@@ -1071,7 +1076,7 @@ function hiss(dur, vol, freq, q = 1) {
 const SFX = {
   shot() { if (!throttle('shot', 0.09)) return; const w = S.weapon;
     if (w === 'laser') blip(1800, 600, 0.06, 'sawtooth', 0.025);
-    else if (w === 'plasma') blip(300, 120, 0.09, 'sine', 0.06);
+    else if (w === 'ion') { blip(420, 140, 0.09, 'sawtooth', 0.035); hiss(0.06, 0.04, 3200, 2); }
     else blip(1200, 400, 0.05, 'square', 0.018); },
   boom(big) { if (!throttle('boom', big ? 0 : 0.04)) return; hiss(big ? 0.9 : 0.22, big ? 0.5 : 0.16, big ? 180 : 600, 0.8); blip(big ? 120 : 200, 40, big ? 0.8 : 0.15, 'triangle', big ? 0.25 : 0.07); },
   good() { blip(520, 1040, 0.14, 'triangle', 0.14); blip(780, 1560, 0.16, 'triangle', 0.12, 0.08); },
@@ -1222,6 +1227,7 @@ function spawnGates(k) {
     panel.position.set(side * 2.5, 1.55, 0);
     group.add(panel);
     const g = Object.assign({ side, acc: 0, cv, tex, mat, panel, bump: 0 }, spec);
+    if (g.kind === 'add') g.value = clamp(g.value, -MAX_SHIPS, MAX_SHIPS);   // never more than a whole fleet either way
     // red ship gates can be shot upward, but only to a small positive number
     if (g.kind === 'add' && g.value < 0) g.cap = Math.max(2, Math.round(-g.value / 2));
     drawGate(g);
@@ -1384,6 +1390,23 @@ function splash(x, z, dmg, radius, color) {
   }
 }
 
+// a jagged line of short-lived sparks between two points
+function arc(x1, z1, x2, z2, color) {
+  const n = Math.max(4, Math.round(Math.hypot(x2 - x1, z2 - z1) * 5));
+  for (let i = 0; i <= n && parts.length < MAX_PARTS; i++) {
+    const f = i / n, j = i === 0 || i === n ? 0 : 0.18;
+    parts.push({ x: x1 + (x2 - x1) * f + rand(-j, j), y: 0.6 + rand(-j, j), z: z1 + (z2 - z1) * f + rand(-j, j), vx: 0, vy: 0, vz: 0,
+      life: rand(0.12, 0.2), max: 0.2, s: rand(0.5, 0.8), c: new THREE.Color(color) });
+  }
+}
+function ionBlast(x, z, dmg) {
+  const W = WEAPONS.ion;
+  for (const e of enemies) if (Math.hypot(e.x - x, e.z - z) < W.splash + ENEMY[e.type].r) arc(x, z, e.x, e.z, Math.random() < 0.5 ? 0xffffff : W.color);
+  for (const q of orbs) if (q.enemy && !q.dead && Math.hypot(q.x - x, q.z - z) < W.splash) arc(x, z, q.x, q.z, 0xffffff);
+  splash(x, z, dmg, W.splash, W.color);
+  burst(x, 0.6, z, 0xe6dcff, 10, 12, 0.6, 0.15);   // a quick bright crackle
+}
+
 function updateProjectiles(dt) {
   // player bolts
   for (let b = bolts.length - 1; b >= 0; b--) {
@@ -1421,7 +1444,7 @@ function updateProjectiles(dt) {
     }
     if (dead) bolts.splice(b, 1);
   }
-  // orbs: plasma (player) and enemy shots
+  // orbs: ion bursts (player) and enemy shots
   for (let o = orbs.length - 1; o >= 0; o--) {
     const s = orbs[o], z0 = s.z;
     if (s.dead) continue;
@@ -1438,14 +1461,15 @@ function updateProjectiles(dt) {
       if (s.z > 12) orbs.splice(o, 1);
       continue;
     }
+    if (Math.random() < 0.5) burst(s.x, SHIP_Y, s.z, Math.random() < 0.5 ? 0xd9ccff : WEAPONS.ion.color, 1, 2.5, 0.2, 0.18);
     let dead = s.z < BULLET_END;
     if (!dead && hitGate(s.x, z0, s.z, s.dmg)) dead = true;
     if (!dead) {
-      // plasma detonates on enemy missiles and orbs too
+      // ion bursts detonate on enemy missiles and orbs too
       for (const q of orbs) {
         if (!q.enemy || q.dead || Math.abs(q.x - s.x) > 0.5 || q.z < s.z - 0.5 || q.z > z0 + 0.5) continue;
         q.dead = true;
-        splash(s.x, q.z, s.dmg, WEAPONS.plasma.splash, WEAPONS.plasma.color);
+        ionBlast(s.x, q.z, s.dmg);
         dead = true; break;
       }
     }
@@ -1455,7 +1479,7 @@ function updateProjectiles(dt) {
         if (e.z + r < s.z || e.z - r > z0 || Math.abs(e.x - s.x) > r) continue;
         const hx = s.x, hz = e.z;
         damageEnemy(j, s.dmg);
-        splash(hx, hz, s.dmg, WEAPONS.plasma.splash, WEAPONS.plasma.color);
+        ionBlast(hx, hz, s.dmg);
         dead = true; break;
       }
     }
@@ -1628,6 +1652,7 @@ function updatePhase(dt) {
       applyTheme(S.sector);
       enemies = []; bolts = []; orbs = [];
       S.fleetOff = 15; S.fleetVel = 0; S.snap = true; S.flash = 1; S.ws = 90;
+      S.zoom = 1;   // cut to the lead fighter under the flash
       const T = themeAt(S.sector);
       banner('SECTOR ' + S.sector, T.name);
       if (BAL.catchup && S.count < CATCHUP_MIN) {
@@ -1639,7 +1664,7 @@ function updatePhase(dt) {
       S.ws += (S.speed - S.ws) * Math.min(1, dt * 1.8);
       S.warpAmt = Math.max(0, S.warpAmt - dt * 1.1);
       S.fleetOff += (0 - S.fleetOff) * Math.min(1, dt * 2.4);
-      if (p > 4.4) { S.phase = 'combat'; S.phaseT = 0; S.fleetOff = 0; S.warpAmt = 0; S.nextEvent = 6; }
+      if (p > 4.4) { S.phase = 'combat'; S.phaseT = 0; S.fleetOff = 0; S.warpAmt = 0; S.nextEvent = 6; S.zoomPan = ZOOM_TIME; }
     }
   }
 }
@@ -1670,7 +1695,8 @@ function leadXAgo(age) {
 function updateFleet(dt) {
   const n = Math.min(S.count, MAX_SHIPS);
   const lim = n > 1 ? LANE - COL_GAP - 0.5 : LANE - 0.6;   // keep the first row inside the rails
-  S.targetX = clamp(S.targetX + S.keyDir * 11 * dt, -lim, lim);
+  // no steering until the camera has settled into its play position
+  S.targetX = S.zoom > 0 ? S.sx : clamp(S.targetX + S.keyDir * 11 * dt, -lim, lim);
   S.prevSx = S.sx;
   S.sx += clamp(S.targetX - S.sx, -16 * dt, 16 * dt);
   S.clock += dt;
@@ -1781,9 +1807,10 @@ function renderInstances(t) {
   let oi = 0, mi = 0;
   for (const s of orbs) {
     if (s.missile) { place(missileMesh, mi++, s.x, 0.6, s.z, 0, Math.atan2(s.vx, s.vz), t * 6, 1.4); continue; }
-    const pulse = 1 + Math.sin(t * 20 + oi) * 0.15;
-    place(orbMesh, oi, s.x, s.enemy ? 0.6 : SHIP_Y, s.z, t * 4, t * 3, 0, (s.enemy ? 1.3 : 1.5) * pulse);
-    orbMesh.setColorAt(oi, tmpC.setHex(s.enemy ? 0xff3355 : WEAPONS.plasma.color)); oi++;
+    // enemy orbs pulse smoothly; ion bursts flicker like a crackling charge
+    const pulse = s.enemy ? 1 + Math.sin(t * 20 + oi) * 0.15 : rand(0.8, 1.2);
+    place(orbMesh, oi, s.x, s.enemy ? 0.6 : SHIP_Y, s.z, t * 4, t * 3, 0, (s.enemy ? 1.3 : 0.42) * pulse);
+    orbMesh.setColorAt(oi, s.enemy ? tmpC.setHex(0xff3355) : tmpC.setHex(WEAPONS.ion.color).lerp(WHITE, rand(0, 0.5))); oi++;
   }
   missileMesh.count = mi; missileMesh.instanceMatrix.needsUpdate = true;
   orbMesh.count = oi; orbMesh.instanceMatrix.needsUpdate = true; if (orbMesh.instanceColor) orbMesh.instanceColor.needsUpdate = true;
@@ -1864,7 +1891,7 @@ resize();
 // ---------- input ----------
 let pointerDown = false;
 function steerTo(clientX) {
-  if (S.state !== 'play') return;
+  if (S.state !== 'play' || S.zoom > 0) return;
   S.targetX = (clientX / innerWidth - 0.5) * 2 * LANE * 1.15;
 }
 addEventListener('pointerdown', e => { if (e.target.closest('button')) return; pointerDown = true; steerTo(e.clientX); });
@@ -2842,7 +2869,7 @@ function reset() {
   enemies = []; bolts = []; orbs = []; parts = []; gates = [];
   trail.length = 0;
   Object.assign(S, { count: 1, rendered: 0, powerLv: 0, rateLv: 0, weapon: 'blaster', weaponT: 0, clock: 0, sx: 0, prevSx: 0, targetX: 0, dist: 0, kills: 0, k: 0, nextEvent: 2, speed: 10, volleyT: 0, shake: 0, boss: null,
-    phase: 'combat', phaseT: 0, sector: 1, rockT: 0, fleetOff: 0, fleetVel: 0, warpAmt: 0, flash: 0, jumped: false, snap: false, cleared: false, clearT: 0, leadZ: CAM.tailZ - 0.5, paused: false, comets: 0 });
+    phase: 'combat', phaseT: 0, sector: 1, rockT: 0, fleetOff: 0, fleetVel: 0, warpAmt: 0, flash: 0, jumped: false, snap: false, cleared: false, clearT: 0, leadZ: CAM.tailZ - 0.5, paused: false, comets: 0, zoom: 0, zoomPan: 0 });
   applyTheme(1);
   $('banner').hidden = true;
   glowMat.color.setHex(WEAPONS.blaster.color);
@@ -2858,6 +2885,7 @@ function start() {
     S.nextEvent = 0; applyTheme(sector);
   }
   S.count = +$('testFleet').value || 1;
+  S.zoom = 1; S.zoomPan = ZOOM_TIME;   // open on the lead fighter, then pull back
   S.state = 'play';
   $('pauseScreen').hidden = true;
   $('startScreen').hidden = true; $('overScreen').hidden = true;
@@ -2950,10 +2978,21 @@ function frame(now) {
 
   S.shake = Math.max(0, S.shake - dt * 2.2);
   const sh = S.shake * S.shake * 0.5;
-  // camera stays centred on the lane; only screen shake moves it
-  camera.position.set(rand(-sh, sh), CAM.y + rand(-sh, sh), CAM.z);
-  camera.lookAt(0, 0, CAM.lz);
-  const fov = CAM.fov + S.warpAmt * 24;
+  // camera stays centred on the lane; only screen shake moves it,
+  // except at the start of a sector, when it opens close on the lead fighter and pulls back
+  if (S.zoomPan > 0) {
+    S.zoomPan = Math.max(0, S.zoomPan - dt);
+    const u = S.zoomPan / ZOOM_TIME; S.zoom = u * u * (3 - 2 * u);
+  }
+  // Zoomed in, the camera looks straight down on the lead fighter. As it pulls back it swings
+  // over on an arc around its target until it sits behind the fleet in the play position.
+  const zm = S.zoom, lx = S.sx, lz = S.leadZ + S.fleetOff;
+  const aim = 1 - (1 - zm) ** 3;   // keep looking at the fighter until late, so it never drops out of frame
+  const tx = lerp(0, lx, aim), ty = lerp(0, SHIP_Y, aim), tz = lerp(CAM.lz, lz, aim);
+  const pitch = lerp(Math.atan2(CAM.y, CAM.z - CAM.lz), ZOOM_PITCH, zm), dist = lerp(Math.hypot(CAM.y, CAM.z - CAM.lz), ZOOM_DIST, zm);
+  camera.position.set(tx + rand(-sh, sh), ty + Math.sin(pitch) * dist + rand(-sh, sh), tz + Math.cos(pitch) * dist);
+  camera.lookAt(tx, ty, tz);
+  const fov = lerp(CAM.fov, 50, zm) + S.warpAmt * 24;
   if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
   sky.position.copy(camera.position);
   flashEl.style.opacity = S.flash;
