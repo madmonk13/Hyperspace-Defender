@@ -566,6 +566,9 @@ const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 900);
 const CAM = { fov: 55, y: 8, z: 8, lz: -13, tailZ: 0.8 };
 const ZOOM_TIME = 2;   // seconds to pull back from the lead fighter when a sector begins
 const ZOOM_PITCH = THREE.MathUtils.degToRad(88), ZOOM_DIST = 5;   // the zoomed-in view: nearly straight down, close
+const BARREL_R = 0.35;   // radius of the loop the lead fighter traces during its sector-start barrel roll
+const LOOP_R = 0.9;      // radius of its sector-start loop in even sectors
+const STUNT_TIME = 1.4;  // seconds of that stunt, flown while the camera is still zoomed in, before it pulls back
 
 scene.add(new THREE.HemisphereLight(0x9fc0ff, 0x2a1040, 0.75));
 const key = new THREE.DirectionalLight(0xffffff, 0.95); key.position.set(3, 9, 10); scene.add(key);
@@ -790,15 +793,16 @@ const ENEMY = {
     ]),
     hp: 1.2, speed: 1.9, str: 1, r: 0.55, home: true, weave: true,
   },
-  gunship: {
+  gunship: {   // a heavy saucer that spins as it comes
     geo: merge([
-      part(B(1.1, 0.5, 1.8), 0xd8692e),
-      part(B(0.7, 0.3, 1.2), 0x3a2420, [0, 0.36, -0.1]),
-      part(new THREE.CylinderGeometry(0.22, 0.22, 1.5, 8), 0x3a2420, [-0.78, 0, 0], [HALF, 0, 0]),
-      part(new THREE.CylinderGeometry(0.22, 0.22, 1.5, 8), 0x3a2420, [0.78, 0, 0], [HALF, 0, 0]),
-      part(new THREE.ConeGeometry(0.22, 0.42, 8), 0xffb347, [-0.78, 0, 0.95], [HALF, 0, 0]),
-      part(new THREE.ConeGeometry(0.22, 0.42, 8), 0xffb347, [0.78, 0, 0.95], [HALF, 0, 0]),
-      part(B(0.44, 0.1, 0.14), 0xffe07a, [0, 0.52, 0.5]),
+      part(new THREE.CylinderGeometry(0.98, 0.62, 0.22, 24), 0xd8692e),
+      part(new THREE.CylinderGeometry(0.5, 0.98, 0.18, 24), 0xb0521f, [0, 0.2, 0]),
+      part(new THREE.SphereGeometry(0.4, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0x3a2420, [0, 0.29, 0]),
+      part(new THREE.TorusGeometry(0.42, 0.04, 6, 20), 0xffb347, [0, 0.3, 0], [HALF, 0, 0]),
+      part(new THREE.TorusGeometry(1.0, 0.06, 6, 28), 0x3a2420, [0, 0, 0], [HALF, 0, 0]),
+      part(new THREE.CylinderGeometry(0.36, 0.24, 0.16, 16), 0x3a2420, [0, -0.19, 0]),
+      part(new THREE.CylinderGeometry(0.2, 0.2, 0.06, 16), new THREE.Color(0xffb347).multiplyScalar(1.5), [0, -0.28, 0]),
+      ...[0, 1, 2, 3, 4, 5].map(i => part(B(0.14, 0.09, 0.14), new THREE.Color(0xffe07a).multiplyScalar(1.4), [Math.cos(i * Math.PI / 3) * 0.86, 0.05, Math.sin(i * Math.PI / 3) * 0.86])),
     ]),
     hp: 6, speed: 1.0, str: 3, r: 1.05, fires: true,
   },
@@ -946,6 +950,24 @@ const MOTHERSHIPS = (() => {
 })();
 const mothershipStyle = sector => MOTHERSHIPS[(sector - 1) % MOTHERSHIPS.length];
 // a Hangar design assigned to the Mothership slot replaces every built-in style
+// a faint blue bubble around the mothership while it is shielded, flaring when shots hit it
+const shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 20),
+  new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false }));
+shieldMesh.visible = false;
+scene.add(shieldMesh);
+function updateShield(t, dt) {
+  const b = S.boss, on = !!b && !b.dead && b.z < BOSS_HOLD_Z;
+  if (shieldMesh.visible && !on && b && !b.dead) burst(b.x, b.y, b.z, 0x7fe6ff, 30, 7, 1.2, 0.6);   // shield drops
+  shieldMesh.visible = on;
+  S.shieldHit = Math.max(0, S.shieldHit - dt * 4);
+  if (!on) return;
+  const g = ENEMY.mothership.mesh.geometry;
+  if (!g.boundingBox) g.computeBoundingBox();
+  const bb = g.boundingBox, cx = (bb.min.x + bb.max.x) / 2, cy = (bb.min.y + bb.max.y) / 2, cz = (bb.min.z + bb.max.z) / 2;
+  shieldMesh.position.set(b.x + cx, b.y + cy + Math.sin(t * 2 + b.phase) * 0.08, b.z + cz);
+  shieldMesh.scale.set(Math.max(1, (bb.max.x - bb.min.x) * 0.72), Math.max(1.2, (bb.max.y - bb.min.y) * 0.9), Math.max(1, (bb.max.z - bb.min.z) * 0.72));
+  shieldMesh.material.opacity = 0.11 + Math.sin(t * 4) * 0.03 + S.shieldHit * 0.25;
+}
 function setMothershipLook(style) {
   const mesh = ENEMY.mothership.mesh;
   if (!mesh.userData.custom) mesh.geometry = style.geo;
@@ -1330,7 +1352,7 @@ function killEnemy(i, credit = true) {
 function damageEnemy(idx, dmg) {
   const e = enemies[idx];
   // the mothership is shielded until it reaches its station, so the fight starts at full health
-  if (ENEMY[e.type].boss && e.z < BOSS_HOLD_Z) { burst(e.x, e.y + 1, e.z + 3, 0x7fe6ff, 1, 3, 0.8, 0.25); return false; }
+  if (ENEMY[e.type].boss && e.z < BOSS_HOLD_Z) { burst(e.x, e.y + 1, e.z + 3, 0x7fe6ff, 1, 3, 0.8, 0.25); S.shieldHit = 1; return false; }
   e.hp -= dmg; e.flash = 1;
   if (e.hp <= 0) { killEnemy(idx); return true; }
   return false;
@@ -1664,7 +1686,7 @@ function updatePhase(dt) {
       S.ws += (S.speed - S.ws) * Math.min(1, dt * 1.8);
       S.warpAmt = Math.max(0, S.warpAmt - dt * 1.1);
       S.fleetOff += (0 - S.fleetOff) * Math.min(1, dt * 2.4);
-      if (p > 4.4) { S.phase = 'combat'; S.phaseT = 0; S.fleetOff = 0; S.warpAmt = 0; S.nextEvent = 6; S.zoomPan = ZOOM_TIME; }
+      if (p > 4.4) { S.phase = 'combat'; S.phaseT = 0; S.fleetOff = 0; S.warpAmt = 0; S.nextEvent = 6; S.stunt = STUNT_TIME; S.zoomPan = ZOOM_TIME; }
     }
   }
 }
@@ -1747,11 +1769,19 @@ function renderInstances(t) {
   const n = S.rendered;
   const vx = (S.sx - S.prevSx) / Math.max(1e-3, lastDt);
   const roll = clamp(-vx * 0.06, -0.7, 0.7);
+  // While the camera is zoomed in at the start of a sector the lead fighter shows off:
+  // a barrel roll in odd sectors, a loop (nose up, over the top and back down) in even ones.
+  const su = S.stunt > 0 ? 1 - S.stunt / STUNT_TIME : 0;
+  const br = su * su * (3 - 2 * su) * Math.PI * 2, loop = S.sector % 2 === 0;
   for (let i = 0; i < n; i++) {
-    const y = SHIP_Y + Math.sin(t * 3 + i * 1.3) * 0.05;
+    let x = px[i], y = SHIP_Y + Math.sin(t * 3 + i * 1.3) * 0.05, z = pz[i], rx = 0, rz = roll;
+    if (i === 0 && br) {
+      if (loop) { y += (1 - Math.cos(br)) * LOOP_R; z -= Math.sin(br) * LOOP_R; rx = br; }
+      else { x += Math.sin(br) * BARREL_R; y += (1 - Math.cos(br)) * BARREL_R; rz -= br; }
+    }
     const s = i === 0 ? 1.35 : 1;
-    place(shipMesh, i, px[i], y, pz[i], 0, 0, roll, s);
-    place(glowMesh, i, px[i], y, pz[i], 0, 0, roll, s);
+    place(shipMesh, i, x, y, z, rx, 0, rz, s);
+    place(glowMesh, i, x, y, z, rx, 0, rz, s);
   }
   shipMesh.count = glowMesh.count = n;
   shipMesh.instanceMatrix.needsUpdate = glowMesh.instanceMatrix.needsUpdate = true;
@@ -1767,6 +1797,7 @@ function renderInstances(t) {
     if (e.type === 'drone') ry = t * 3 + e.phase;
     if (e.type === 'raider') rz = Math.sin(t * 2.2 + e.phase) * 0.45;
     if (e.type === 'mothership') ry = Math.sin(t * 0.6) * 0.12;
+    if (e.type === 'gunship') ry = t * 1.6 + e.phase;
     place(m, i, e.x, e.y + Math.sin(t * 2 + e.phase) * 0.08, e.z, rx, ry, rz, 1);
     const f = e.flash;
     tmpC.setRGB(1 + f * 2.5, 1 + f * 2.5, 1 + f * 2.5);
@@ -2869,7 +2900,7 @@ function reset() {
   enemies = []; bolts = []; orbs = []; parts = []; gates = [];
   trail.length = 0;
   Object.assign(S, { count: 1, rendered: 0, powerLv: 0, rateLv: 0, weapon: 'blaster', weaponT: 0, clock: 0, sx: 0, prevSx: 0, targetX: 0, dist: 0, kills: 0, k: 0, nextEvent: 2, speed: 10, volleyT: 0, shake: 0, boss: null,
-    phase: 'combat', phaseT: 0, sector: 1, rockT: 0, fleetOff: 0, fleetVel: 0, warpAmt: 0, flash: 0, jumped: false, snap: false, cleared: false, clearT: 0, leadZ: CAM.tailZ - 0.5, paused: false, comets: 0, zoom: 0, zoomPan: 0 });
+    phase: 'combat', phaseT: 0, sector: 1, rockT: 0, fleetOff: 0, fleetVel: 0, warpAmt: 0, flash: 0, jumped: false, snap: false, cleared: false, clearT: 0, leadZ: CAM.tailZ - 0.5, paused: false, comets: 0, zoom: 0, zoomPan: 0, stunt: 0, shieldHit: 0 });
   applyTheme(1);
   $('banner').hidden = true;
   glowMat.color.setHex(WEAPONS.blaster.color);
@@ -2885,7 +2916,7 @@ function start() {
     S.nextEvent = 0; applyTheme(sector);
   }
   S.count = +$('testFleet').value || 1;
-  S.zoom = 1; S.zoomPan = ZOOM_TIME;   // open on the lead fighter, then pull back
+  S.zoom = 1; S.stunt = STUNT_TIME; S.zoomPan = ZOOM_TIME;   // open on the lead fighter, show off, then pull back
   S.state = 'play';
   $('pauseScreen').hidden = true;
   $('startScreen').hidden = true; $('overScreen').hidden = true;
@@ -2980,7 +3011,8 @@ function frame(now) {
   const sh = S.shake * S.shake * 0.5;
   // camera stays centred on the lane; only screen shake moves it,
   // except at the start of a sector, when it opens close on the lead fighter and pulls back
-  if (S.zoomPan > 0) {
+  if (S.stunt > 0) S.stunt = Math.max(0, S.stunt - dt);
+  else if (S.zoomPan > 0) {
     S.zoomPan = Math.max(0, S.zoomPan - dt);
     const u = S.zoomPan / ZOOM_TIME; S.zoom = u * u * (3 - 2 * u);
   }
@@ -2997,6 +3029,7 @@ function frame(now) {
   sky.position.copy(camera.position);
   flashEl.style.opacity = S.flash;
 
+  updateShield(t, dt);
   renderInstances(t);
   updateHud();
   renderer.render(scene, camera);
